@@ -1,0 +1,1641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Capacity sweep · ER simulation vs queueing theory</title>
+<style>
+  :root {
+    --bg: #060912; --bg-2: #0d1428; --surface: rgba(20,30,56,0.78);
+    --border: rgba(255,255,255,0.08); --text: #e8eefb; --text-mut: #94a4c4;
+    --ok: #34d399; --warn: #f59e0b; --fail: #ef4444; --idle: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: radial-gradient(900px 480px at 82% -8%, rgba(96,165,250,0.18), transparent 60%),
+                radial-gradient(700px 400px at -10% 25%, rgba(37,99,235,0.14), transparent 60%),
+                var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    margin: 0; padding: 32px 40px; min-height: 100vh;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--text-mut); font-size: 13px; margin-bottom: 20px; }
+  .card {
+    background: var(--surface); backdrop-filter: blur(20px);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 20px; margin-bottom: 18px;
+    box-shadow: 0 14px 40px rgba(37,99,235,0.10);
+  }
+  h2 { font-size: 14px; font-weight: 700; margin: 0 0 12px;
+       letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-mut); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td {
+    border: 1px solid rgba(255,255,255,0.05);
+    padding: 4px; text-align: center; min-width: 70px;
+  }
+  th {
+    font-size: 10px; font-weight: 700; color: var(--text-mut);
+    background: rgba(255,255,255,0.04);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  td.cell {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    cursor: help; transition: transform .12s ease;
+    padding: 6px 4px;
+  }
+  td.cell:hover { transform: scale(1.05); z-index: 2; position: relative; }
+  .cell-rho   { font-size: 13px; font-weight: 700; line-height: 1.2; }
+  .cell-detail { font-size: 9.5px; color: rgba(255,255,255,0.65); margin-top: 2px; line-height: 1.25; }
+  td.cell.ok   { background: rgba(52,211,153,0.20);  color: #d1fae5; }
+  td.cell.warn { background: rgba(245,158,11,0.22);  color: #fde68a; }
+  td.cell.fail { background: rgba(239,68,68,0.25);   color: #fecaca; }
+  td.cell.idle { background: rgba(107,114,128,0.18); color: #cbd5e1; }
+  .legend {
+    margin-top: 8px; font-size: 11px; color: var(--text-mut);
+    display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .legend span {
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .params {
+    font-size: 12px; color: var(--text-mut); display: flex; gap: 22px;
+    flex-wrap: wrap;
+  }
+  .params b { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+</style>
+</head>
+<body>
+  <h1>Capacity sweep · ER simulation vs queueing theory</h1>
+  <div class="sub">Generated 2026-05-01 23:27 · runtime 4.7s</div>
+
+  <div class="card">
+    <h2>Sweep parameters</h2>
+    <div class="params">
+      <span>arrival_mean = <b>6.0</b> min</span>
+      <span>duration = <b>4000</b> min</span>
+      <span>replications = <b>2</b></span>
+      <span>strategy = <b>FIFO</b></span>
+      <span>combinations = <b>96</b></span>
+      <span>stable = <b>66</b></span>
+      <span>unstable = <b>30</b></span>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background: rgba(52,211,153,0.40)"></span> within band (sim/theory ratio in [0.85, 1.15] for ρ; [0.6, 1.7] for Lq/Wq)</span>
+      <span><span class="swatch" style="background: rgba(245,158,11,0.40)"></span> close (within wider band)</span>
+      <span><span class="swatch" style="background: rgba(239,68,68,0.40)"></span> off</span>
+      <span><span class="swatch" style="background: rgba(107,114,128,0.30)"></span> theory unstable / n/a</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Critical care pool · sim vs theory</h2>
+    <table><thead><tr><th></th><th>1 std beds</th><th>2 std beds</th><th>3 std beds</th><th>4 std beds</th><th>5 std beds</th><th>6 std beds</th><th>7 std beds</th><th>8 std beds</th><th>9 std beds</th><th>10 std beds</th><th>11 std beds</th><th>12 std beds</th></tr></thead><tbody><tr><th>1 crit beds</th>
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=79.42, Wq=1384.1m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=86.27, Wq=1463.8m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=80.81, Wq=1422.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.98, Wq=1527.9m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=78.49, Wq=1411.5m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=2.111 (Lq=∞, Wq=∞)
+sim    ρ=0.994, Lq=87.62, Wq=1480.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.99</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+</tr><tr><th>2 crit beds</th>
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.964, Lq=15.17, Wq=211.9m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.962, Lq=18.36, Wq=262.3m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.980, Lq=16.20, Wq=238.6m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.98</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.964, Lq=11.77, Wq=162.2m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.963, Lq=11.82, Wq=165.7m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=2 · UNSTABLE
+theory ρ=1.056 (Lq=∞, Wq=∞)
+sim    ρ=0.958, Lq=10.14, Wq=141.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">0.96</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+</tr><tr><th>3 crit beds</th>
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.708, Lq=0.51, Wq=7.42m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.51<br>Wq 7.4m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.717, Lq=0.68, Wq=9.23m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.72</div>
+  <div class="cell-detail">Lq 0.68<br>Wq 9.2m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.696, Lq=0.83, Wq=12.24m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.70</div>
+  <div class="cell-detail">Lq 0.83<br>Wq 12.2m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.693, Lq=0.67, Wq=9.89m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.69</div>
+  <div class="cell-detail">Lq 0.67<br>Wq 9.9m</div>
+</td>
+
+<td class="cell warn" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.752, Lq=1.19, Wq=15.48m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.75</div>
+  <div class="cell-detail">Lq 1.19<br>Wq 15.5m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.716, Lq=0.71, Wq=10.15m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.72</div>
+  <div class="cell-detail">Lq 0.71<br>Wq 10.2m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.711, Lq=0.69, Wq=9.99m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.69<br>Wq 10.0m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.711, Lq=0.69, Wq=9.99m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.69<br>Wq 10.0m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.711, Lq=0.69, Wq=9.99m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.69<br>Wq 10.0m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.711, Lq=0.69, Wq=9.99m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.69<br>Wq 10.0m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.711, Lq=0.69, Wq=9.99m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.69<br>Wq 10.0m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.704, Lq=0.61, Wq=9.10m
+sim   : ρ=0.711, Lq=0.69, Wq=9.99m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.71</div>
+  <div class="cell-detail">Lq 0.69<br>Wq 10.0m</div>
+</td>
+</tr><tr><th>4 crit beds</th>
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.547, Lq=0.14, Wq=1.88m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.55</div>
+  <div class="cell-detail">Lq 0.14<br>Wq 1.9m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.521, Lq=0.14, Wq=2.05m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.52</div>
+  <div class="cell-detail">Lq 0.14<br>Wq 2.0m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.528, Lq=0.17, Wq=2.32m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.17<br>Wq 2.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.525, Lq=0.09, Wq=1.30m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.52</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.533, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.528, Lq=0.12, Wq=1.74m
+sim   : ρ=0.531, Lq=0.09, Wq=1.26m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.09<br>Wq 1.3m</div>
+</td>
+</tr><tr><th>5 crit beds</th>
+<td class="cell ok" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.441, Lq=0.02, Wq=0.32m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.44</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.3m</div>
+</td>
+
+<td class="cell ok" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.415, Lq=0.04, Wq=0.60m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.41</div>
+  <div class="cell-detail">Lq 0.04<br>Wq 0.6m</div>
+</td>
+
+<td class="cell ok" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.418, Lq=0.03, Wq=0.37m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.03<br>Wq 0.4m</div>
+</td>
+
+<td class="cell ok" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.424, Lq=0.03, Wq=0.39m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.03<br>Wq 0.4m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.423, Lq=0.02, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.422, Lq=0.03, Wq=0.41m
+sim   : ρ=0.420, Lq=0.01, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.42</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+</tr><tr><th>6 crit beds</th>
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.370, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.37</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell warn" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.352, Lq=0.01, Wq=0.18m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.353, Lq=0.01, Wq=0.14m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.355, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=6
+theory: ρ=0.352, Lq=0.01, Wq=0.10m
+sim   : ρ=0.354, Lq=0.01, Wq=0.10m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.35</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+</tr><tr><th>7 crit beds</th>
+<td class="cell fail" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.312, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.305, Lq=0.01, Wq=0.18m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.301, Lq=0.00, Wq=0.04m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.302, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=7
+theory: ρ=0.302, Lq=0.00, Wq=0.02m
+sim   : ρ=0.303, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.30</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>8 crit beds</th>
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.273, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.27</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.266, Lq=0.01, Wq=0.07m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.27</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.264, Lq=0.00, Wq=0.00m
+sim   : ρ=0.265, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Standard pool · sim vs theory</h2>
+    <table><thead><tr><th></th><th>1 crit beds</th><th>2 crit beds</th><th>3 crit beds</th><th>4 crit beds</th><th>5 crit beds</th><th>6 crit beds</th><th>7 crit beds</th><th>8 crit beds</th></tr></thead><tbody><tr><th>1 std beds</th>
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=87.10, Wq=993.6m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=90.28, Wq=1019.8m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=99.36, Wq=1067.9m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=91.44, Wq=1054.4m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=94.24, Wq=1107.9m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=86.05, Wq=1034.3m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=88.42, Wq=1038.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+
+<td class="cell ok" title="c=1 · UNSTABLE
+theory ρ=1.667 (Lq=∞, Wq=∞)
+sim    ρ=0.999, Lq=88.42, Wq=1038.0m
+check: sim ρ should saturate (>0.9) → ok">
+  <div class="cell-rho">1.00</div>
+  <div class="cell-detail">ρ ≥ 1<br>queue grows</div>
+</td>
+</tr><tr><th>2 std beds</th>
+<td class="cell ok" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.791, Lq=1.22, Wq=12.11m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.79</div>
+  <div class="cell-detail">Lq 1.22<br>Wq 12.1m</div>
+</td>
+
+<td class="cell warn" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.759, Lq=1.16, Wq=12.17m
+checks: ρ ok · Lq warn · Wq ok">
+  <div class="cell-rho">0.76</div>
+  <div class="cell-detail">Lq 1.16<br>Wq 12.2m</div>
+</td>
+
+<td class="cell warn" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.764, Lq=1.00, Wq=10.26m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.76</div>
+  <div class="cell-detail">Lq 1.00<br>Wq 10.3m</div>
+</td>
+
+<td class="cell ok" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.769, Lq=1.43, Wq=14.79m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.77</div>
+  <div class="cell-detail">Lq 1.43<br>Wq 14.8m</div>
+</td>
+
+<td class="cell ok" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.749, Lq=1.38, Wq=14.49m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.75</div>
+  <div class="cell-detail">Lq 1.38<br>Wq 14.5m</div>
+</td>
+
+<td class="cell ok" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.754, Lq=1.36, Wq=14.30m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.75</div>
+  <div class="cell-detail">Lq 1.36<br>Wq 14.3m</div>
+</td>
+
+<td class="cell ok" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.741, Lq=1.30, Wq=13.91m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.74</div>
+  <div class="cell-detail">Lq 1.30<br>Wq 13.9m</div>
+</td>
+
+<td class="cell ok" title="c=2
+theory: ρ=0.833, Lq=1.96, Wq=19.60m
+sim   : ρ=0.739, Lq=1.30, Wq=13.96m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.74</div>
+  <div class="cell-detail">Lq 1.30<br>Wq 14.0m</div>
+</td>
+</tr><tr><th>3 std beds</th>
+<td class="cell ok" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.538, Lq=0.18, Wq=1.79m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.54</div>
+  <div class="cell-detail">Lq 0.18<br>Wq 1.8m</div>
+</td>
+
+<td class="cell warn" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.507, Lq=0.11, Wq=1.12m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.51</div>
+  <div class="cell-detail">Lq 0.11<br>Wq 1.1m</div>
+</td>
+
+<td class="cell warn" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.528, Lq=0.12, Wq=1.16m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.53</div>
+  <div class="cell-detail">Lq 0.12<br>Wq 1.2m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.512, Lq=0.13, Wq=1.35m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.51</div>
+  <div class="cell-detail">Lq 0.13<br>Wq 1.3m</div>
+</td>
+
+<td class="cell ok" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.507, Lq=0.12, Wq=1.23m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.51</div>
+  <div class="cell-detail">Lq 0.12<br>Wq 1.2m</div>
+</td>
+
+<td class="cell warn" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.503, Lq=0.11, Wq=1.18m
+checks: ρ ok · Lq warn · Wq ok">
+  <div class="cell-rho">0.50</div>
+  <div class="cell-detail">Lq 0.11<br>Wq 1.2m</div>
+</td>
+
+<td class="cell warn" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.503, Lq=0.11, Wq=1.18m
+checks: ρ ok · Lq warn · Wq ok">
+  <div class="cell-rho">0.50</div>
+  <div class="cell-detail">Lq 0.11<br>Wq 1.2m</div>
+</td>
+
+<td class="cell warn" title="c=3
+theory: ρ=0.556, Lq=0.19, Wq=1.94m
+sim   : ρ=0.504, Lq=0.11, Wq=1.18m
+checks: ρ ok · Lq warn · Wq ok">
+  <div class="cell-rho">0.50</div>
+  <div class="cell-detail">Lq 0.11<br>Wq 1.2m</div>
+</td>
+</tr><tr><th>4 std beds</th>
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.397, Lq=0.02, Wq=0.17m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.40</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.390, Lq=0.02, Wq=0.18m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.39</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell ok" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.404, Lq=0.03, Wq=0.25m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.40</div>
+  <div class="cell-detail">Lq 0.03<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.392, Lq=0.02, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.39</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.388, Lq=0.02, Wq=0.22m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.39</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.389, Lq=0.02, Wq=0.20m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.39</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.388, Lq=0.02, Wq=0.21m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.39</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+
+<td class="cell warn" title="c=4
+theory: ρ=0.417, Lq=0.04, Wq=0.38m
+sim   : ρ=0.388, Lq=0.02, Wq=0.21m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.39</div>
+  <div class="cell-detail">Lq 0.02<br>Wq 0.2m</div>
+</td>
+</tr><tr><th>5 std beds</th>
+<td class="cell ok" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.321, Lq=0.01, Wq=0.13m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.32</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell fail" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.309, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell ok" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.308, Lq=0.01, Wq=0.08m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell ok" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.311, Lq=0.01, Wq=0.05m
+checks: ρ ok · Lq ok · Wq ok">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.01<br>Wq 0.1m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.307, Lq=0.00, Wq=0.04m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.306, Lq=0.00, Wq=0.04m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.306, Lq=0.00, Wq=0.04m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=5
+theory: ρ=0.333, Lq=0.01, Wq=0.08m
+sim   : ρ=0.306, Lq=0.00, Wq=0.04m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.31</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>6 std beds</th>
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.268, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.27</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.262, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell warn" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.263, Lq=0.00, Wq=0.01m
+checks: ρ ok · Lq warn · Wq warn">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.259, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.256, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.255, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.255, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=6
+theory: ρ=0.278, Lq=0.00, Wq=0.02m
+sim   : ρ=0.255, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.26</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>7 std beds</th>
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.230, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.23</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.224, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.22</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.226, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.23</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.222, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.22</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.219, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.22</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.219, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.22</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.219, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.22</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=7
+theory: ρ=0.238, Lq=0.00, Wq=0.00m
+sim   : ρ=0.219, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.22</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>8 std beds</th>
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.201, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.20</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.196, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.20</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.197, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.20</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.194, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.19</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.192, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.19</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.192, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.19</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.191, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.19</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=8
+theory: ρ=0.208, Lq=0.00, Wq=0.00m
+sim   : ρ=0.191, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.19</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>9 std beds</th>
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.179, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.18</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.174, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.17</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.175, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.18</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.173, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.17</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.171, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.17</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.170, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.17</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.170, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.17</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=9
+theory: ρ=0.185, Lq=0.00, Wq=0.00m
+sim   : ρ=0.170, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.17</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>10 std beds</th>
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.161, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.16</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.157, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.16</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.158, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.16</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.155, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.16</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.153, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.15</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.153, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.15</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.153, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.15</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=10
+theory: ρ=0.167, Lq=0.00, Wq=0.00m
+sim   : ρ=0.153, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.15</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>11 std beds</th>
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.146, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.15</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.143, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.144, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.141, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.140, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.139, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.139, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=11
+theory: ρ=0.152, Lq=0.00, Wq=0.00m
+sim   : ρ=0.139, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.14</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr><tr><th>12 std beds</th>
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.134, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.131, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.132, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.129, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.128, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.128, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.128, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+
+<td class="cell fail" title="c=12
+theory: ρ=0.139, Lq=0.00, Wq=0.00m
+sim   : ρ=0.128, Lq=0.00, Wq=0.00m
+checks: ρ ok · Lq fail · Wq fail">
+  <div class="cell-rho">0.13</div>
+  <div class="cell-detail">Lq 0.00<br>Wq 0.0m</div>
+</td>
+</tr></tbody></table>
+  </div>
+
+  <div class="sub" style="margin-top: 16px">
+    Hover any cell for full ρ / Lq / Wq theory and sim numbers and per-metric pass/warn/fail. Cell colour is the worst of the three per-pool checks.
+  </div>
+</body>
+</html>
